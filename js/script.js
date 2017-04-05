@@ -1,4 +1,4 @@
-// vim: ts=2 sw=2 et ai:
+'use strict';
 
 // Change favicon
 var linkTags = document.getElementsByTagName('link');
@@ -19,8 +19,8 @@ function f() {
 	link.href= chrome.extension.getURL('css/styles.css');
 	link.rel = 'stylesheet';
 	link.type = 'text/css';
-	var iframe = document.getElementsByTagName('iframe')[0];
-	iframe.contentDocument.head.appendChild(link);
+	document.getElementsByTagName('iframe')[0]
+        .contentDocument.head.appendChild(link);
 }
 f();
 window.onload = f();
@@ -49,7 +49,7 @@ function initIframe(){
     return;
   }
   // Change help link destination
-  var doc = $(iframe).contents();
+  var doc = $('iframe').contents();
   var helpLink = doc.find('#\\:1\\.he');
   var nav = helpLink.parent();
   helpLink.remove();
@@ -70,64 +70,82 @@ function initIframe(){
   initialisedIframe = true;
 }
 
-// check url:
-function nav() {
-    'use strict';
-    const defaultlist = '*Grocery/TODOs';
+// check url stuff, including helpers:
+const trigger_mouse_event = function(node, eventType) {
+  var clickEvent = document.createEvent ('MouseEvents');
+  clickEvent.initEvent (eventType, true, true);
+  node.dispatchEvent (clickEvent);
+};
 
-    function triggerMouseEvent (node, eventType) {
-        var clickEvent = document.createEvent ('MouseEvents');
-        clickEvent.initEvent (eventType, true, true);
-        node.dispatchEvent (clickEvent);
+const trigger_change = function(matches, listname) {
+  listname = listname.trim().toLowerCase();
+  console.log('listname='+listname);
+  var obj;
+  matches.forEach(function(match) {
+    console.log('match: '+match.innerText);
+    if (match.innerText.trim().toLowerCase() == listname)
+      obj = match;
+  });
+  if (!obj) {
+    console.warn(`desired match not found for "${listname}"`);
+    return;
+  }
+  trigger_mouse_event(obj, "mouseover");
+  trigger_mouse_event(obj, "mousedown");
+  trigger_mouse_event(obj, "mouseup");
+  trigger_mouse_event(obj, "click");
+};
+
+// the redirect itself:
+chrome.storage.sync.get({
+  listname: ''
+}, function(items) {
+  const defaultlist = items.listname;
+
+  window.addEventListener('hashchange', function() {
+    trigger_change(window.decodeURI(window.location.hash.substring(1)));
+  }, false);
+
+  let done = false;
+  function click_tab() {
+    if (done) return;
+
+    const matches = document
+      .querySelector('iframe')
+      .contentDocument
+      .querySelectorAll('td.Tb div.goog-inline-block.goog-flat-button');
+    if (matches.length > 1) {
+      // click to the right tab:
+      if (window.location.hash.length > 1) {
+        trigger_change(matches, window.decodeURI(window.location.hash.substring(1)));
+      } else if (defaultlist) {
+        trigger_change(matches, defaultlist);
+      }
+      done = true;
+    } else {
+      // HACK: repeat while DOM is not yet generated
+      window.setTimeout(click_tab, 25);
+      console.log('didnt find element, repeating click_tab');
     }
+  }
+  document.addEventListener('DOMContentLoaded', click_tab);
+  click_tab();
+});
 
-    function trigger_change(listname) {
-        listname = listname.trim().toLowerCase();
-        console.log('listname='+listname);
-        var obj;
-        document
-            .querySelector('iframe')
-            .contentDocument
-            .querySelectorAll('div.goog-inline-block.goog-flat-button')
-            .forEach(function(match) {
-                console.log('match: '+match.innerText);
-                if (match.innerText.trim().toLowerCase() == listname)
-                    obj = match;
-            });
-        if (!obj) {
-            console.warn(`desired match not found for "${listname}"`);
-            return;
-        }
-        triggerMouseEvent(obj, "mouseover");
-        triggerMouseEvent(obj, "mousedown");
-        triggerMouseEvent(obj, "mouseup");
-        triggerMouseEvent(obj, "click");
-    }
-
-    window.addEventListener('hashchange', function() {
-        trigger_change(window.decodeURI(window.location.hash.substring(1)));
-    }, false);
-
-    function setup() {
-        var matches = document
-            .querySelector('iframe')
-            .contentDocument
-            .querySelectorAll('div.goog-inline-block.goog-flat-button');
-        if (matches.length > 1) {
-            if (window.location.hash.length > 1)
-                trigger_change(window.decodeURI(window.location.hash.substring(1)));
-            else
-                trigger_change(defaultlist);
-        } else {
-            // HACK: repeat while DOM is not yet generated
-            window.setTimeout(setup, 25);
-        }
-    }
-    setup();
-}
-document.body.onload = nav;
-nav();
-
-iframe.onload = initIframe();
+// bugfix: iframe did not exist, so only the second call (sometimes) worked
+document.querySelector('iframe').onload = initIframe();
 initIframe();
+
+// Update hash in URL when we change tab (click handlers didn't work)
+window.setInterval(function() {
+  try {
+    var elem = document.querySelector('iframe').contentDocument.querySelector('div.Yb'); 
+    var new_hash = '#' + elem.innerText.trim();
+    if (window.location.hash.toLowerCase() !== new_hash.toLowerCase()) {
+      window.location.hash = new_hash;
+    }
+  } catch (e) {
+    console.log(e);
+  }
+}, 500);
 

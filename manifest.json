@@ -20,6 +20,11 @@
     "default_title": "Better Google Tasks",
     "default_icon": "img/icon-32.png"
   },
+  "permissions": [
+    "*://mail.google.com/tasks/canvas*",
+    "storage"
+  ],
+  "options_page": "html/options.html",
   "web_accessible_resources": [
     "css/styles.css",
     "font/_VYFx-s824kXq_Ul2BHqYH-_kf6ByYO6CLYdB4HQE-Y.woff2",
